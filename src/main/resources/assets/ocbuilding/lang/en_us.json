@@ -1,0 +1,8 @@
+{
+    "ocbuilding.keybind.chunkborders" : "Toggle Chunk Borders",
+    "ocbuilding.keybind.clearblocks" : "Clear Block Changes",
+    "ocbuilding.keybind.trackblocks" : "Track Block Changes",
+    "ocbuilding.clearchanges" : "Existing block changes cleared",
+    "ocbuilding.trackchangeson" : "Now tracking block changes",
+    "ocbuilding.trackchangesoff" : "Stopped tracking block changes"
+}

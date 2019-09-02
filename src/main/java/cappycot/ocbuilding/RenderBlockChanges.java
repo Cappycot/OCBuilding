@@ -10,6 +10,7 @@ import static org.lwjgl.opengl.GL11.glTranslated;
 import static org.lwjgl.opengl.GL11.glVertex3d;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -30,6 +31,9 @@ import net.minecraftforge.fml.client.registry.ClientRegistry;
 
 public class RenderBlockChanges {
 
+	public static final int CHUNK_CULL_TICKS = 20; // Delete chunks every this ticks.
+	public static final int MAX_CHUNK_DIST = 2; // Delete chunks that are this amount further than the player's current
+												// chunk.
 	public static final int TRACK_HEIGHT = 8; // Track a total of 16 blocks (8 up and 8 down) for changes.
 
 	public int r = 255;
@@ -39,18 +43,21 @@ public class RenderBlockChanges {
 
 	KeyBinding keyTrack;
 	KeyBinding keyClear;
+	boolean clear = false;
 	boolean draw = false;
 
 	HashMap<String, IChunk> chunks = new HashMap<String, IChunk>();
 	int lastEx = Integer.MAX_VALUE;
 	int lastEz = Integer.MAX_VALUE;
-	BlockTracker[][] trackers = new BlockTracker[3][3];
+	// BlockTracker[][] trackers = new BlockTracker[3][3];
+	HashMap<String, BlockTracker> trackers;
 	LinkedList<BlockPos> positions = new LinkedList<BlockPos>();
 
 	public RenderBlockChanges() {
-		for (int i = 0; i < 3; i++)
-			for (int j = 0; j < 3; j++)
-				trackers[i][j] = new BlockTracker();
+		// for (int i = 0; i < 3; i++)
+		// for (int j = 0; j < 3; j++)
+		// trackers[i][j] = new BlockTracker();
+		trackers = new HashMap<String, BlockTracker>();
 		keyClear = new KeyBinding("ocbuilding.keybind.clearblocks", 296, "key.categories.misc");
 		keyTrack = new KeyBinding("ocbuilding.keybind.trackblocks", 299, "key.categories.misc");
 		ClientRegistry.registerKeyBinding(keyClear);
@@ -59,103 +66,107 @@ public class RenderBlockChanges {
 
 	@SubscribeEvent
 	public void onRenderWorldLast(RenderWorldLastEvent event) {
+		if (clear) {
+			positions.clear();
+			clear = false;
+		} else {
+			Minecraft minecraft = Minecraft.getInstance();
 
-		Minecraft minecraft = Minecraft.getInstance();
+			if (minecraft.getRenderManager().info.isThirdPerson())
+				return;
 
-		if (minecraft.getRenderManager().info.isThirdPerson())
-			return;
+			Entity entity = minecraft.getRenderViewEntity();
 
-		Entity entity = minecraft.getRenderViewEntity();
+			switch (seq) {
+			case 0:
+				g += 5;
+				if (g == 255)
+					seq++;
+				break;
+			case 1:
+				r -= 5;
+				if (r == 0)
+					seq++;
+				break;
+			case 2:
+				b += 5;
+				if (b == 255)
+					seq++;
+				break;
+			case 3:
+				g -= 5;
+				if (g == 0)
+					seq++;
+				break;
+			case 4:
+				r += 5;
+				if (r == 255)
+					seq++;
+				break;
+			default:
+				b -= 5;
+				if (b == 0)
+					seq = 0;
+				break;
+			}
 
-		switch (seq) {
-		case 0:
-			g += 5;
-			if (g == 255)
-				seq++;
-			break;
-		case 1:
-			r -= 5;
-			if (r == 0)
-				seq++;
-			break;
-		case 2:
-			b += 5;
-			if (b == 255)
-				seq++;
-			break;
-		case 3:
-			g -= 5;
-			if (g == 0)
-				seq++;
-			break;
-		case 4:
-			r += 5;
-			if (r == 255)
-				seq++;
-			break;
-		default:
-			b -= 5;
-			if (b == 0)
-				seq = 0;
-			break;
+			float rf = r / 255F;
+			float gf = g / 255F;
+			float bf = b / 255F;
+
+			GlStateManager.disableTexture();
+			GlStateManager.enableBlend();
+			GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			GlStateManager.disableLighting();
+			double px = entity.lastTickPosX + (entity.posX - entity.lastTickPosX) * event.getPartialTicks();
+			double py = entity.lastTickPosY + (entity.posY - entity.lastTickPosY) * event.getPartialTicks()
+					+ entity.getEyeHeight() - OCBuilding.OFFSET;
+			double pz = entity.lastTickPosZ + (entity.posZ - entity.lastTickPosZ) * event.getPartialTicks();
+			glTranslated(-px, -py, -pz);
+			glLineWidth(4.0F);
+			glBegin(GL_LINES);
+			GlStateManager.color4f(rf, gf, bf, 1.0F);
+
+			for (BlockPos bp : positions) {
+				int x = bp.getX();
+				int y = bp.getY();
+				int z = bp.getZ();
+
+				glVertex3d(x, y, z);
+				glVertex3d(x + 1, y, z);
+				glVertex3d(x + 1, y, z);
+				glVertex3d(x + 1, y, z + 1);
+				glVertex3d(x + 1, y, z + 1);
+				glVertex3d(x, y, z + 1);
+				glVertex3d(x, y, z + 1);
+				glVertex3d(x, y, z);
+
+				glVertex3d(x, y, z);
+				glVertex3d(x, y + 1, z);
+				glVertex3d(x + 1, y, z);
+				glVertex3d(x + 1, y + 1, z);
+				glVertex3d(x + 1, y, z + 1);
+				glVertex3d(x + 1, y + 1, z + 1);
+				glVertex3d(x, y, z + 1);
+				glVertex3d(x, y + 1, z + 1);
+
+				glVertex3d(x, y + 1, z);
+				glVertex3d(x + 1, y + 1, z);
+				glVertex3d(x + 1, y + 1, z);
+				glVertex3d(x + 1, y + 1, z + 1);
+				glVertex3d(x + 1, y + 1, z + 1);
+				glVertex3d(x, y + 1, z + 1);
+				glVertex3d(x, y + 1, z + 1);
+				glVertex3d(x, y + 1, z);
+			}
+
+			glEnd();
+			// glTranslated(entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ);
+			glTranslated(px, py, pz);
+			GlStateManager.enableLighting();
+			GlStateManager.disableBlend();
+			GlStateManager.enableTexture();
 		}
-
-		float rf = r / 255F;
-		float gf = g / 255F;
-		float bf = b / 255F;
-
-		GlStateManager.disableTexture();
-		GlStateManager.enableBlend();
-		GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		GlStateManager.disableLighting();
-		double px = entity.lastTickPosX + (entity.posX - entity.lastTickPosX) * event.getPartialTicks();
-		double py = entity.lastTickPosY + (entity.posY - entity.lastTickPosY) * event.getPartialTicks()
-				+ entity.getEyeHeight() - OCBuilding.OFFSET;
-		double pz = entity.lastTickPosZ + (entity.posZ - entity.lastTickPosZ) * event.getPartialTicks();
-		glTranslated(-px, -py, -pz);
-		glLineWidth(4.0F);
-		glBegin(GL_LINES);
-		GlStateManager.color4f(rf, gf, bf, 1.0F);
-
-		for (BlockPos bp : positions) {
-			int x = bp.getX();
-			int y = bp.getY();
-			int z = bp.getZ();
-
-			glVertex3d(x, y, z);
-			glVertex3d(x + 1, y, z);
-			glVertex3d(x + 1, y, z);
-			glVertex3d(x + 1, y, z + 1);
-			glVertex3d(x + 1, y, z + 1);
-			glVertex3d(x, y, z + 1);
-			glVertex3d(x, y, z + 1);
-			glVertex3d(x, y, z);
-
-			glVertex3d(x, y, z);
-			glVertex3d(x, y + 1, z);
-			glVertex3d(x + 1, y, z);
-			glVertex3d(x + 1, y + 1, z);
-			glVertex3d(x + 1, y, z + 1);
-			glVertex3d(x + 1, y + 1, z + 1);
-			glVertex3d(x, y, z + 1);
-			glVertex3d(x, y + 1, z + 1);
-
-			glVertex3d(x, y + 1, z);
-			glVertex3d(x + 1, y + 1, z);
-			glVertex3d(x + 1, y + 1, z);
-			glVertex3d(x + 1, y + 1, z + 1);
-			glVertex3d(x + 1, y + 1, z + 1);
-			glVertex3d(x, y + 1, z + 1);
-			glVertex3d(x, y + 1, z + 1);
-			glVertex3d(x, y + 1, z);
-		}
-
-		glEnd();
-		// glTranslated(entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ);
-		glTranslated(px, py, pz);
-		GlStateManager.enableLighting();
-		GlStateManager.disableBlend();
-		GlStateManager.enableTexture();
 	}
 
 	// 296 / 299
@@ -163,7 +174,7 @@ public class RenderBlockChanges {
 	public void onKeyInput(InputEvent.KeyInputEvent event) {
 		if (event.getAction() == 1) {
 			if (event.getKey() == keyClear.getKey().getKeyCode()) {
-				positions.clear();
+				clear = true; // positions.clear();
 				Minecraft.getInstance().ingameGUI.getChatGUI()
 						.printChatMessage(new TranslationTextComponent("ocbuilding.clearchanges"));
 			} else if (event.getKey() == keyTrack.getKey().getKeyCode()) {
@@ -171,96 +182,116 @@ public class RenderBlockChanges {
 				Minecraft.getInstance().ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent(
 						draw ? "ocbuilding.trackchangeson" : "ocbuilding.trackchangesoff"));
 				if (!draw)
-					for (int i = 0; i < 3; i++)
-						for (int j = 0; j < 3; j++)
-							trackers[i][j].reset();
+					trackers.clear();
+				// for (int i = 0; i < 3; i++)
+				// for (int j = 0; j < 3; j++)
+				// trackers[i][j].reset();
 			}
 		}
 	}
 
-	private boolean chunkChanged(Entity entity) {
+	// private boolean chunkChanged(Entity entity) {
 
-		int ex = entity.chunkCoordX;
-		int ez = entity.chunkCoordZ;
-
-		if (lastEx != ex || lastEz != ez) {
-			// System.out.println("Start changing chunk.");
-			int xc = ex - lastEx;
-			int zc = ez - lastEz;
-			System.out.printf("Change in x = %d, z = %d\n", xc, zc);
-			if (Math.abs(xc) > 2 || Math.abs(zc) > 2)
-				for (int i = 0; i < 3; i++)
-					for (int j = 0; j < 3; j++)
-						trackers[i][j].reset();
-			else {
-				// x difference
-				int xcm = xc + 3;
-				BlockTracker t0;
-				BlockTracker t1;
-				BlockTracker t2;
-				for (int z = 0; z < 3; z++) {
-					t0 = trackers[xcm % 3][z];
-					t1 = trackers[(xcm + 1) % 3][z];
-					t2 = trackers[(xcm + 2) % 3][z];
-					trackers[0][z] = t0;
-					trackers[1][z] = t1;
-					trackers[2][z] = t2;
-					switch (xc) {
-					case -2:
-						trackers[1][z].reset();
-					case -1:
-						trackers[0][z].reset();
-						break;
-					case 2:
-						trackers[1][z].reset();
-					case 1:
-						trackers[2][z].reset();
-						break;
-					}
-				}
-				// z difference
-				int zcm = zc + 3;
-				for (int x = 0; x < 3; x++) {
-					t0 = trackers[x][zcm % 3];
-					t1 = trackers[x][(zcm + 1) % 3];
-					t2 = trackers[x][(zcm + 2) % 3];
-					trackers[x][0] = t0;
-					trackers[x][1] = t1;
-					trackers[x][2] = t2;
-					switch (zc) {
-					case -2:
-						trackers[x][1].reset();
-					case -1:
-						trackers[x][0].reset();
-						break;
-					case 2:
-						trackers[x][1].reset();
-					case 1:
-						trackers[x][2].reset();
-						break;
-					}
-				}
-			}
-			lastEx = ex;
-			lastEz = ez;
-			return true;
-			// System.out.println("Done changing chunk.");
-		} else
-			return false;
-	}
+	// int ex = entity.chunkCoordX;
+	// int ez = entity.chunkCoordZ;
+	//
+	// if (lastEx != ex || lastEz != ez) {
+	// // System.out.println("Start changing chunk.");
+	// int xc = ex - lastEx;
+	// int zc = ez - lastEz;
+	// System.out.printf("Change in x = %d, z = %d\n", xc, zc);
+	// if (Math.abs(xc) > 2 || Math.abs(zc) > 2)
+	// for (int i = 0; i < 3; i++)
+	// for (int j = 0; j < 3; j++)
+	// trackers[i][j].reset();
+	// else {
+	// x difference
+	// int xcm = xc + 3;
+	// BlockTracker t0;
+	// BlockTracker t1;
+	// BlockTracker t2;
+	// for (int z = 0; z < 3; z++) {
+	// t0 = trackers[xcm % 3][z];
+	// t1 = trackers[(xcm + 1) % 3][z];
+	// t2 = trackers[(xcm + 2) % 3][z];
+	// trackers[0][z] = t0;
+	// trackers[1][z] = t1;
+	// trackers[2][z] = t2;
+	// switch (xc) {
+	// case -2:
+	// trackers[1][z].reset();
+	// case -1:
+	// trackers[0][z].reset();
+	// break;
+	// case 2:
+	// trackers[1][z].reset();
+	// case 1:
+	// trackers[2][z].reset();
+	// break;
+	// }
+	// }
+	// // z difference
+	// int zcm = zc + 3;
+	// for (int x = 0; x < 3; x++) {
+	// t0 = trackers[x][zcm % 3];
+	// t1 = trackers[x][(zcm + 1) % 3];
+	// t2 = trackers[x][(zcm + 2) % 3];
+	// trackers[x][0] = t0;
+	// trackers[x][1] = t1;
+	// trackers[x][2] = t2;
+	// switch (zc) {
+	// case -2:
+	// trackers[x][1].reset();
+	// case -1:
+	// trackers[x][0].reset();
+	// break;
+	// case 2:
+	// trackers[x][1].reset();
+	// case 1:
+	// trackers[x][2].reset();
+	// break;
+	// }
+	// }
+	// //}
+	// lastEx = ex;
+	// lastEz = ez;
+	// return true;
+	// // System.out.println("Done changing chunk.");
+	// } else
+	// return false;
+	// }
 
 	@SubscribeEvent
 	public void onClientTick(ClientTickEvent event) {
-		if (!draw)
-			return;
+
+		// if (!draw)
+		// return;
 		Entity entity = Minecraft.getInstance().getRenderViewEntity();
 		if (entity == null)
 			return;
-		if (!chunkChanged(entity)) // Have to run this here as well because of potential server lag.
-			for (int i = 0; i < 3; i++)
-				for (int j = 0; j < 3; j++)
-					if (trackers[i][j].ticks < BlockTracker.TRACK_DELAY)
-						trackers[i][j].ticks += 1;
+		int ex = entity.chunkCoordX;
+		int ez = entity.chunkCoordZ;
+		// if (!chunkChanged(entity)) // Have to run this here as well because of
+		// potential server lag.
+		// for (int i = 0; i < 3; i++)
+		// for (int j = 0; j < 3; j++)
+		// if (trackers[i][j].ticks < BlockTracker.TRACK_DELAY)
+		// trackers[i][j].ticks += 1;
+
+		if (entity.ticksExisted % CHUNK_CULL_TICKS == 0) {
+			// System.out.println(trackers.size());
+			Iterator<String> coords = trackers.keySet().iterator();
+			while (coords.hasNext()) {
+				String s = coords.next();
+				BlockTracker tracker = trackers.get(s);
+				if (tracker != null) {
+					int cx = tracker.cx;
+					int cz = tracker.cz;
+					if (Math.abs(cx - ex) > MAX_CHUNK_DIST || Math.abs(cz - ez) > MAX_CHUNK_DIST)
+						coords.remove();
+				}
+			}
+		}
 	}
 
 	@SubscribeEvent
@@ -274,80 +305,28 @@ public class RenderBlockChanges {
 		if (entity == null)
 			return;
 
-		chunkChanged(entity);
+		// chunkChanged(entity);
 
 		int cx = chunk.getPos().x;
 		int cz = chunk.getPos().z;
 		int ex = entity.chunkCoordX;
 		int ez = entity.chunkCoordZ;
 
-		if (lastEx != ex || lastEz != ez) {
-			// System.out.println("Start changing chunk.");
-			int xc = ex - lastEx;
-			int zc = ez - lastEz;
-			System.out.printf("Change in x = %d, z = %d\n", xc, zc);
-			if (Math.abs(xc) > 2 || Math.abs(zc) > 2)
-				for (int i = 0; i < 3; i++)
-					for (int j = 0; j < 3; j++)
-						trackers[i][j].reset();
-			else {
-				// x difference
-				int xcm = xc + 3;
-				BlockTracker t0;
-				BlockTracker t1;
-				BlockTracker t2;
-				for (int z = 0; z < 3; z++) {
-					t0 = trackers[xcm % 3][z];
-					t1 = trackers[(xcm + 1) % 3][z];
-					t2 = trackers[(xcm + 2) % 3][z];
-					trackers[0][z] = t0;
-					trackers[1][z] = t1;
-					trackers[2][z] = t2;
-					switch (xc) {
-					case -2:
-						trackers[1][z].reset();
-					case -1:
-						trackers[0][z].reset();
-						break;
-					case 2:
-						trackers[1][z].reset();
-					case 1:
-						trackers[2][z].reset();
-						break;
-					}
-				}
-				// z difference
-				int zcm = zc + 3;
-				for (int x = 0; x < 3; x++) {
-					t0 = trackers[x][zcm % 3];
-					t1 = trackers[x][(zcm + 1) % 3];
-					t2 = trackers[x][(zcm + 2) % 3];
-					trackers[x][0] = t0;
-					trackers[x][1] = t1;
-					trackers[x][2] = t2;
-					switch (zc) {
-					case -2:
-						trackers[x][1].reset();
-					case -1:
-						trackers[x][0].reset();
-						break;
-					case 2:
-						trackers[x][1].reset();
-					case 1:
-						trackers[x][2].reset();
-						break;
-					}
-				}
-			}
-			lastEx = ex;
-			lastEz = ez;
-			// System.out.println("Done changing chunk.");
-		}
 		if (cx >= ex - 1 && cx <= ex + 1 && cz >= ez - 1 && cz <= ez + 1) {
-			BlockTracker tracker = trackers[1 + cx - ex][1 + cz - ez];
-			if (tracker.ticks < BlockTracker.TRACK_DELAY)
+
+			String coords = String.format("%d,%d", cx, cz);
+			BlockTracker tracker = trackers.get(coords);
+			if (tracker == null) {
+				tracker = new BlockTracker(cx, cz);
+				trackers.put(coords, tracker);
+			}
+			if (tracker.ticks + BlockTracker.TRACK_DELAY > entity.ticksExisted)
 				return;
-			tracker.ticks = 0;
+			tracker.ticks = entity.ticksExisted;
+			// BlockTracker tracker = trackers[1 + cx - ex][1 + cz - ez];
+			// if (tracker.ticks < BlockTracker.TRACK_DELAY)
+			// return;
+			// tracker.ticks = 0;
 			int ey = (int) Math.floor(entity.posY);
 			cx *= 16;
 			cz *= 16;
@@ -361,7 +340,8 @@ public class RenderBlockChanges {
 						if (b == null)
 							continue;
 						if (tracker.compare[y] && tracker.blocks[x][y][z] != b)
-							positions.add(bp); // System.out.printf("block changed at %d %d %d\n", cx + x, y, cz + z);
+							positions.add(bp);
+						// System.out.printf("block changed at %d %d %d\n", cx + x, y, cz + z);
 						tracker.blocks[x][y][z] = b;
 					}
 				}

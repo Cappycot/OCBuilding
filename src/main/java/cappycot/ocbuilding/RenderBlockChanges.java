@@ -15,7 +15,9 @@ import java.util.LinkedList;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 
+import net.minecraft.block.AirBlock;
 import net.minecraft.block.Block;
+import net.minecraft.block.FlowingFluidBlock;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
@@ -31,12 +33,12 @@ import net.minecraftforge.fml.client.registry.ClientRegistry;
 
 public class RenderBlockChanges {
 
-	public static final int CHUNK_CULL_TICKS = 20; // Delete chunks every this ticks.
-	public static final int MAX_CHUNK_DIST = 2; // Delete chunks that are this amount further than the player's current
+	public static final int CHUNK_CULL_TICKS = 10; // Delete chunks every this ticks.
+	public static final int MAX_CHUNK_DIST = 1; // Delete chunks that are this amount further than the player's current
 												// chunk.
 	public static final int TRACK_HEIGHT = 8; // Track a total of 16 blocks (8 up and 8 down) for changes.
 
-	public int r = 255;
+	public int r = 256;
 	public int g = 0;
 	public int b = 0;
 	public int seq = 0;
@@ -45,11 +47,9 @@ public class RenderBlockChanges {
 	KeyBinding keyClear;
 	boolean clear = false;
 	boolean draw = false;
+	boolean ticked = false;
 
 	HashMap<String, IChunk> chunks = new HashMap<String, IChunk>();
-	int lastEx = Integer.MAX_VALUE;
-	int lastEz = Integer.MAX_VALUE;
-	// BlockTracker[][] trackers = new BlockTracker[3][3];
 	HashMap<String, BlockTracker> trackers;
 	LinkedList<BlockPos> positions = new LinkedList<BlockPos>();
 
@@ -64,6 +64,8 @@ public class RenderBlockChanges {
 		ClientRegistry.registerKeyBinding(keyTrack);
 	}
 
+	private int lastTicks = 0;
+
 	@SubscribeEvent
 	public void onRenderWorldLast(RenderWorldLastEvent event) {
 		if (clear) {
@@ -77,42 +79,45 @@ public class RenderBlockChanges {
 
 			Entity entity = minecraft.getRenderViewEntity();
 
-			switch (seq) {
-			case 0:
-				g += 5;
-				if (g == 255)
-					seq++;
-				break;
-			case 1:
-				r -= 5;
-				if (r == 0)
-					seq++;
-				break;
-			case 2:
-				b += 5;
-				if (b == 255)
-					seq++;
-				break;
-			case 3:
-				g -= 5;
-				if (g == 0)
-					seq++;
-				break;
-			case 4:
-				r += 5;
-				if (r == 255)
-					seq++;
-				break;
-			default:
-				b -= 5;
-				if (b == 0)
-					seq = 0;
-				break;
+			if (lastTicks != entity.ticksExisted) {
+				lastTicks = entity.ticksExisted;
+				switch (seq) {
+				case 0:
+					g += 8;
+					if (g == 256)
+						seq++;
+					break;
+				case 1:
+					r -= 8;
+					if (r == 0)
+						seq++;
+					break;
+				case 2:
+					b += 8;
+					if (b == 256)
+						seq++;
+					break;
+				case 3:
+					g -= 8;
+					if (g == 0)
+						seq++;
+					break;
+				case 4:
+					r += 8;
+					if (r == 256)
+						seq++;
+					break;
+				default:
+					b -= 8;
+					if (b == 0)
+						seq = 0;
+					break;
+				}
 			}
 
-			float rf = r / 255F;
-			float gf = g / 255F;
-			float bf = b / 255F;
+			float rf = r / 256F; // idc because it's float in the end.
+			float gf = g / 256F;
+			float bf = b / 256F;
 
 			GlStateManager.disableTexture();
 			GlStateManager.enableBlend();
@@ -190,77 +195,6 @@ public class RenderBlockChanges {
 		}
 	}
 
-	// private boolean chunkChanged(Entity entity) {
-
-	// int ex = entity.chunkCoordX;
-	// int ez = entity.chunkCoordZ;
-	//
-	// if (lastEx != ex || lastEz != ez) {
-	// // System.out.println("Start changing chunk.");
-	// int xc = ex - lastEx;
-	// int zc = ez - lastEz;
-	// System.out.printf("Change in x = %d, z = %d\n", xc, zc);
-	// if (Math.abs(xc) > 2 || Math.abs(zc) > 2)
-	// for (int i = 0; i < 3; i++)
-	// for (int j = 0; j < 3; j++)
-	// trackers[i][j].reset();
-	// else {
-	// x difference
-	// int xcm = xc + 3;
-	// BlockTracker t0;
-	// BlockTracker t1;
-	// BlockTracker t2;
-	// for (int z = 0; z < 3; z++) {
-	// t0 = trackers[xcm % 3][z];
-	// t1 = trackers[(xcm + 1) % 3][z];
-	// t2 = trackers[(xcm + 2) % 3][z];
-	// trackers[0][z] = t0;
-	// trackers[1][z] = t1;
-	// trackers[2][z] = t2;
-	// switch (xc) {
-	// case -2:
-	// trackers[1][z].reset();
-	// case -1:
-	// trackers[0][z].reset();
-	// break;
-	// case 2:
-	// trackers[1][z].reset();
-	// case 1:
-	// trackers[2][z].reset();
-	// break;
-	// }
-	// }
-	// // z difference
-	// int zcm = zc + 3;
-	// for (int x = 0; x < 3; x++) {
-	// t0 = trackers[x][zcm % 3];
-	// t1 = trackers[x][(zcm + 1) % 3];
-	// t2 = trackers[x][(zcm + 2) % 3];
-	// trackers[x][0] = t0;
-	// trackers[x][1] = t1;
-	// trackers[x][2] = t2;
-	// switch (zc) {
-	// case -2:
-	// trackers[x][1].reset();
-	// case -1:
-	// trackers[x][0].reset();
-	// break;
-	// case 2:
-	// trackers[x][1].reset();
-	// case 1:
-	// trackers[x][2].reset();
-	// break;
-	// }
-	// }
-	// //}
-	// lastEx = ex;
-	// lastEz = ez;
-	// return true;
-	// // System.out.println("Done changing chunk.");
-	// } else
-	// return false;
-	// }
-
 	@SubscribeEvent
 	public void onClientTick(ClientTickEvent event) {
 
@@ -292,13 +226,12 @@ public class RenderBlockChanges {
 				}
 			}
 		}
+		ticked = true;
 	}
 
 	@SubscribeEvent
 	public void onChunkEvent(ChunkEvent.Load event) {
-		if (!draw)
-			return;
-		else if (event.getWorld() == null || !event.getWorld().isRemote())
+		if (!draw || event.getWorld() == null || !event.getWorld().isRemote())
 			return;
 		IChunk chunk = ((ChunkEvent) event).getChunk();
 		Entity entity = Minecraft.getInstance().getRenderViewEntity();
@@ -312,17 +245,20 @@ public class RenderBlockChanges {
 		int ex = entity.chunkCoordX;
 		int ez = entity.chunkCoordZ;
 
-		if (cx >= ex - 1 && cx <= ex + 1 && cz >= ez - 1 && cz <= ez + 1) {
-
+		if (cx >= ex - MAX_CHUNK_DIST && cx <= ex + MAX_CHUNK_DIST && cz >= ez - MAX_CHUNK_DIST
+				&& cz <= ez + MAX_CHUNK_DIST) {
+			
 			String coords = String.format("%d,%d", cx, cz);
 			BlockTracker tracker = trackers.get(coords);
 			if (tracker == null) {
 				tracker = new BlockTracker(cx, cz);
 				trackers.put(coords, tracker);
 			}
-			if (tracker.ticks + BlockTracker.TRACK_DELAY > entity.ticksExisted)
+			if (tracker.ticks + BlockTracker.TRACK_DELAY > entity.ticksExisted || !ticked)
 				return;
+			ticked = false;
 			tracker.ticks = entity.ticksExisted;
+			
 			// BlockTracker tracker = trackers[1 + cx - ex][1 + cz - ez];
 			// if (tracker.ticks < BlockTracker.TRACK_DELAY)
 			// return;
@@ -337,9 +273,12 @@ public class RenderBlockChanges {
 					for (int z = 0; z < 16; z++) {
 						BlockPos bp = new BlockPos(cx + x, y, cz + z);
 						Block b = chunk.getBlockState(bp).getBlock();
+						Block b2 = tracker.blocks[x][y][z];
 						if (b == null)
 							continue;
-						if (tracker.compare[y] && tracker.blocks[x][y][z] != b)
+						if (tracker.compare[y] && b != b2 && !(b instanceof FlowingFluidBlock && b2 instanceof AirBlock
+								|| b instanceof AirBlock && b2 instanceof FlowingFluidBlock)) // b != Blocks.WATER && b2
+																								// != Blocks.WATER)
 							positions.add(bp);
 						// System.out.printf("block changed at %d %d %d\n", cx + x, y, cz + z);
 						tracker.blocks[x][y][z] = b;

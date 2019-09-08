@@ -16,7 +16,16 @@ public class OCBuilding {
 	}
 
 	public void setup(FMLClientSetupEvent event) {
+
+		BlockChangeRenderer blockChangeRenderer = new BlockChangeRenderer();
+		Thread blockChangeThread = new Thread(blockChangeRenderer);
+		blockChangeThread.start();
+		MinecraftForge.EVENT_BUS.register(blockChangeRenderer);
 		MinecraftForge.EVENT_BUS.register(new RenderChunkBorders());
-		MinecraftForge.EVENT_BUS.register(new RenderBlockChanges());
+		UnsafeBlockRenderer unsafeBlockRenderer = new UnsafeBlockRenderer();
+		Thread unsafeBlockThread = new Thread(unsafeBlockRenderer);
+		unsafeBlockThread.start();
+		MinecraftForge.EVENT_BUS.register(unsafeBlockRenderer);
+
 	}
 }

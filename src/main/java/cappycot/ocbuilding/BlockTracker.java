@@ -18,9 +18,8 @@ public class BlockTracker {
 	}
 
 	public void reset() {
-		for (int k = 0; k < 256; k++) {
+		for (int k = 0; k < 256; k++)
 			compare[k] = false;
-			// ticks = BlockTracker.TRACK_DELAY;
-		}
+		// ticks = BlockTracker.TRACK_DELAY;
 	}
 }

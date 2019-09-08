@@ -46,43 +46,8 @@ public class RenderChunkBorders {
 			return;
 
 		Entity entity = minecraft.getRenderViewEntity();
-
-		switch (seq) {
-		case 0:
-			g += 5;
-			if (g == 255)
-				seq++;
-			break;
-		case 1:
-			r -= 5;
-			if (r == 0)
-				seq++;
-			break;
-		case 2:
-			b += 5;
-			if (b == 255)
-				seq++;
-			break;
-		case 3:
-			g -= 5;
-			if (g == 0)
-				seq++;
-			break;
-		case 4:
-			r += 5;
-			if (r == 255)
-				seq++;
-			break;
-		default:
-			b -= 5;
-			if (b == 0)
-				seq = 0;
-			break;
-		}
-
-		float rf = r / 255F;
-		float gf = g / 255F;
-		float bf = b / 255F;
+		if (entity == null)
+			return;
 
 		GlStateManager.disableTexture();
 		GlStateManager.enableBlend();
@@ -94,7 +59,7 @@ public class RenderChunkBorders {
 		glTranslated(-px, -py - entity.getEyeHeight() + OCBuilding.OFFSET, -pz);
 		glLineWidth(4.0F);
 		glBegin(GL_LINES);
-		GlStateManager.color4f(rf, gf, bf, 1.0F);
+		GlStateManager.color4f(1.0F, 0F, 0F, 1.0F);
 
 		for (int cx = -2; cx <= 2; cx++) {
 			for (int cz = -2; cz <= 2; cz++) {
@@ -118,7 +83,7 @@ public class RenderChunkBorders {
 
 				// double dist = Math.pow(2.0, -(cx * cx + cz * cz));
 
-				GlStateManager.color4f(gf, bf, rf, 1.0F); // (float) dist);
+				GlStateManager.color4f(1.0F, 0F, 0F, 0.8F); // (float) dist);
 				if (cx >= 0 && cz >= 0) {
 					glVertex3d(x2, y1, z2);
 					glVertex3d(x2, y2, z2);
@@ -150,7 +115,7 @@ public class RenderChunkBorders {
 						y1 = y2 - dy;
 					}
 
-					GlStateManager.color4f(rf, gf, bf, 1.0F);
+					GlStateManager.color4f(0F, 1.0F, 0F, 0.8F);
 					for (double y = (int) y1; y <= y2; y++) {
 						glVertex3d(x2, y, z1);
 						glVertex3d(x2, y, z2);
@@ -176,7 +141,7 @@ public class RenderChunkBorders {
 
 					if (mouseOver.getType() == RayTraceResult.Type.BLOCK) {
 						BlockPos bp = ((BlockRayTraceResult) mouseOver).getPos();
-						GlStateManager.color4f(bf, rf, gf, 1.0F);
+						GlStateManager.color4f(0F, 0.3F, 1.0F, 0.5F);
 						double x = bp.getX(); // Math.floor(px);
 						double z = bp.getZ(); // Math.floor(pz);
 						double x11 = Math.min(x, x1);

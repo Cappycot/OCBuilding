@@ -24,7 +24,7 @@ displayURL="https://github.com/Cappycot/OCBuilding" #optional
 # A file name (in the root of the mod JAR) containing a logo for display
 # logoFile="examplemod.png" #optional
 # A text field displayed in the mod UI
-credits="Chicken Bones for the original NEI chunk border drawing code" #optional
+credits="Chicken-Bones, Zyin055" #optional
 # A text field displayed in the mod UI
 authors="Cappycot" #optional
 # The description text for the mod (multi line!) (#mandatory)
